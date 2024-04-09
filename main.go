@@ -148,7 +148,8 @@ func newHTTPHandler() http.Handler {
 	}
 
 	// Register handlers.
-	handleFunc("/rolldice", rolldice)
+	handleFunc("/publish", publish)
+	handleFunc("/consume", consume)
 	// handleFunc("/waiting", waiting)
 
 	// Add HTTP instrumentation for the whole server.

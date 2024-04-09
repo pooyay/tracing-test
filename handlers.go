@@ -18,12 +18,17 @@ var (
 	meter  = otel.Meter("publish-consume")
 )
 
-func connection() (*nats.Conn, error) {
+func initConnection() (*nats.Conn, jetstream.JetStream) {
 	nc, err := nats.Connect(nats.DefaultURL)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return nc, err
+	// Create a JetStream management interface
+	js, err := jetstream.New(nc)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return nc, js
 }
 
 func publish(w http.ResponseWriter, r *http.Request) {
@@ -33,101 +38,41 @@ func publish(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	nc, err := connection()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create a JetStream management interface
-	js, err := jetstream.New(nc)
-	if err != nil {
-		log.Fatal(err)
-	}
+	nc, js := initConnection()
+	defer nc.Close()
 
 	js.Publish(ctx, "ORDERS.new", []byte("hello message"))
 	fmt.Println("message published.")
-
-	// for i := 0; i < 10; i++ {
-	// 	js.Publish(ctx, "ORDERS.new", []byte("hello message "+strconv.Itoa(i)))
-	// 	fmt.Println("Published hello message", i)
-	// 	resp := "Published hello message" + strconv.Itoa(i) + "\n"
-	// 	if _, err := io.WriteString(w, resp); err != nil {
-	// 		log.Printf("Write failed: %v\n", err)
-	// 	}
-	// }
 }
 
-func consume(w http.ResponseWriter, r *http.Request) {
-	_, span := tracer.Start(r.Context(), "jetstream")
-	defer span.End()
-
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-
-	nc, err := connection()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create a JetStream management interface
-	js, err := jetstream.New(nc)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create a stream
+func createStream(ctx context.Context, js jetstream.JetStream) (jetstream.Stream, error) {
 	stream, err := js.CreateStream(ctx, jetstream.StreamConfig{
 		Name:     "ORDERS",
 		Subjects: []string{"ORDERS.*"},
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
+	return stream, err
+}
 
-	// Create durable consumer
+func createDurableConsumer(ctx context.Context, stream jetstream.Stream) (jetstream.Consumer, error) {
 	c, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		Durable:   "CONS",
 		AckPolicy: jetstream.AckExplicitPolicy,
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	msg, _ := c.Next()
-	if err != nil {
-		log.Fatal(err)
-	}
-	msg.Ack()
-	fmt.Println("Recieved message: ", string(msg.Data()))
+	return c, err
 }
 
 func ConsumerJob(ctx context.Context) {
-	nc, err := connection()
-	if err != nil {
-		log.Fatal(err)
-	}
+	nc, js := initConnection()
 	defer nc.Close()
 
-	// Create a JetStream management interface
-	js, err := jetstream.New(nc)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// Create a stream
-	stream, err := js.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     "ORDERS",
-		Subjects: []string{"ORDERS.*"},
-	})
+	stream, err := createStream(ctx, js)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Create durable consumer
-	c, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
-		Durable:   "CONS",
-		AckPolicy: jetstream.AckExplicitPolicy,
-	})
+	c, err := createDurableConsumer(ctx, stream)
 	if err != nil {
 		log.Fatal(err)
 	}

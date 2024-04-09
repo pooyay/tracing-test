@@ -79,7 +79,6 @@ func newHTTPHandler() http.Handler {
 
 	// Register handlers.
 	handleFunc("/publish", publish)
-	handleFunc("/consume", consume)
 
 	// Add HTTP instrumentation for the whole server.
 	handler := otelhttp.NewHandler(mux, "/")

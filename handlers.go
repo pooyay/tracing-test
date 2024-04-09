@@ -32,7 +32,7 @@ func initConnection() (*nats.Conn, jetstream.JetStream) {
 }
 
 func publish(w http.ResponseWriter, r *http.Request) {
-	_, span := tracer.Start(r.Context(), "jetstream")
+	_, span := tracer.Start(r.Context(), "publish")
 	defer span.End()
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
@@ -62,6 +62,9 @@ func createDurableConsumer(ctx context.Context, stream jetstream.Stream) (jetstr
 }
 
 func ConsumerJob(ctx context.Context) {
+	_, span := tracer.Start(ctx, "consumer")
+	defer span.End()
+
 	nc, js := initConnection()
 	defer nc.Close()
 

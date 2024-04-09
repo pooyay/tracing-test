@@ -11,85 +11,13 @@ import (
 	"os/signal"
 	"time"
 
-	// "github.com/nats-io/nats.go"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	// "context"
-	// "errors"
-	// "log"
-	// "net"
-	// "net/http"
-	// "os"
-	// "os/signal"
-	// "time"
 )
 
 func main() {
 	if err := run(); err != nil {
 		log.Fatalln(err)
 	}
-	// Connect to the NATS server
-	// nc, err := nats.Connect(nats.DefaultURL)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer nc.Close()
-
-	// // Create Jetstream context
-	// js, err := nc.JetStream(nats.PublishAsyncMaxPending(256))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// 	js, err := JetStreamInit()
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-
-	// 	// js, err := jetstream.New(nc)
-	// 	// if err != nil {
-	// 	// 	log.Fatal(err)
-	// 	// }
-
-	// 	// Publisher
-	// 	msg := []byte("Hello, Jetstream!")
-	// 	_, err = js.Publish("subject", msg)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	// fmt.Printf("Published message with ID: %s\n", msgID)
-
-	// 	// Wait for a short duration to ensure the message is processed
-	// 	time.Sleep(500 * time.Millisecond)
-
-	// 	// Consumer
-	// 	sub, err := js.SubscribeSync("subject")
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	defer sub.Unsubscribe()
-
-	// 	msgReceived, err := sub.NextMsg(time.Second)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-
-	// 	fmt.Printf("Received message: %s\n", string(msgReceived.Data))
-	// }
-
-	// func JetStreamInit() (nats.JetStreamContext, error) {
-	// 	// Connect to NATS
-	// 	nc, err := nats.Connect(nats.DefaultURL)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	// Create JetStream Context
-	// 	js, err := nc.JetStream(nats.PublishAsyncMaxPending(256))
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// return js, nil
 }
 
 func run() (err error) {

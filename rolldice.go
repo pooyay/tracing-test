@@ -8,20 +8,21 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
-	"time"
 
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
 var (
-	tracer  = otel.Tracer("rolldice")
-	meter   = otel.Meter("rolldice")
-	rollCnt metric.Int64Counter
+	tracer     = otel.Tracer("rolldice")
+	meter      = otel.Meter("rolldice")
+	rollCnt    metric.Int64Counter
+	messageCnt metric.Int64Counter
 )
 
 func init() {
@@ -51,7 +52,8 @@ func rolldice(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Write failed: %v\n", err)
 	}
 
-	_, js_span := tracer.Start(r.Context(), "jetstream")
+	// publish - consume
+	jsctx, js_span := tracer.Start(r.Context(), "jetstream")
 	defer js_span.End()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -68,9 +70,14 @@ func rolldice(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Publish some messages
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		js.Publish(ctx, "ORDERS.new", []byte("hello message "+strconv.Itoa(i)))
-		fmt.Printf("Published hello message %d\n", i)
+		fmt.Println("Published hello message", i)
+		resp := "Published hello message" + strconv.Itoa(i) + "\n"
+		if _, err := io.WriteString(w, resp); err != nil {
+			log.Printf("Write failed: %v\n", err)
+		}
+
 	}
 
 	// Create durable consumer
@@ -84,7 +91,8 @@ func rolldice(w http.ResponseWriter, r *http.Request) {
 	msgs, _ := c.Fetch(10)
 	for msg := range msgs.Messages() {
 		msg.Ack()
-		fmt.Printf("Received a JetStream message via fetch: %s\n", string(msg.Data()))
+		fmt.Println("Received a JetStream message via fetch: ", string(msg.Data()))
+
 		messageCounter++
 	}
 	fmt.Printf("received %d messages\n", messageCounter)
@@ -93,46 +101,31 @@ func rolldice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Receive messages continuously in a callback
-	cons, _ := c.Consume(func(msg jetstream.Msg) {
-		msg.Ack()
-		fmt.Printf("Received a JetStream message via callback: %s\n", string(msg.Data()))
-		messageCounter++
-	})
-	defer cons.Stop()
+	// cons, _ := c.Consume(func(msg jetstream.Msg) {
+	// 	msg.Ack()
+	// 	fmt.Println("Received a JetStream message via callback: ", string(msg.Data()))
+	// 	messageCounter++
+	// })
+	// defer cons.Stop()
 
 	// Iterate over messages continuously
-	it, _ := c.Messages()
-	for i := 0; i < 10; i++ {
-		msg, _ := it.Next()
-		msg.Ack()
-		fmt.Printf("Received a JetStream message via iterator: %s\n", string(msg.Data()))
-		messageCounter++
-	}
-	it.Stop()
+	// it, _ := c.Messages()
+	// for i := 0; i < 10; i++ {
+	// 	msg, _ := it.Next()
+	// 	msg.Ack()
+	// 	fmt.Println("Received a JetStream message via iterator: ", string(msg.Data()))
+	// 	messageCounter++
+	// }
+	// it.Stop()
 
-	// block until all 100 published messages have been processed
-	for messageCounter < 100 {
-		time.Sleep(10 * time.Millisecond)
-	}
+	// block until all 10 published messages have been processed
+	// for messageCounter < 10 {
+	// 	time.Sleep(10 * time.Millisecond)
+	// }
+	// nc.Close()
+
+	messageCnteAttr := attribute.Int("messageCnt.value", messageCounter)
+	span.SetAttributes(messageCnteAttr)
+	rollCnt.Add(jsctx, 1, metric.WithAttributes(messageCnteAttr))
 
 }
-
-// func parentFunction(ctx context.Context, w http.ResponseWriter) {
-// 	ctx, parentSpan := tracer.Start(ctx, "parent")
-// 	defer parentSpan.End()
-
-// 	childFunction(ctx, w)
-
-// 	// io.WriteString(w, "Waiting for 1 second in parent...\n")
-// 	time.Sleep(1 * time.Second)
-// 	// io.WriteString(w, "Waited for 1 seconds in parent.\n")
-// }
-
-// func childFunction(ctx context.Context, w http.ResponseWriter) {
-// 	ctx, childSpan := tracer.Start(ctx, "child")
-// 	defer childSpan.End()
-
-// 	// io.WriteString(w, "Waiting for 500 milisecond in child...\n")
-// 	time.Sleep(500 * time.Millisecond)
-// 	// io.WriteString(w, "Waited for 500 miliseconds in child.\n")
-// }

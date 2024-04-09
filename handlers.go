@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	tracer = otel.Tracer("publish/consume")
-	meter  = otel.Meter("publish/consume")
+	tracer = otel.Tracer("publish-consume")
+	meter  = otel.Meter("publish-consume")
 )
 
 func publish(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +78,7 @@ func consume(w http.ResponseWriter, r *http.Request) {
 		messageCounter++
 	}
 	fmt.Printf("received %d messages\n", messageCounter)
-	resp := "received " + string(messageCounter) + " messages" + "\n"
+	resp := "received " + strconv.Itoa(messageCounter) + " messages" + "\n"
 	if _, err := io.WriteString(w, resp); err != nil {
 		log.Printf("Write failed: %v\n", err)
 	}

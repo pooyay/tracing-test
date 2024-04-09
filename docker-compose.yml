@@ -1,0 +1,18 @@
+version: '3.7'
+
+# To run a specific version of Jaeger, use environment variable, e.g.:
+#     JAEGER_VERSION=1.52 docker compose up
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:${JAEGER_VERSION:-latest}
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      - LOG_LEVEL=debug
+    networks:
+      - jaeger-example
+
+networks:
+  jaeger-example:

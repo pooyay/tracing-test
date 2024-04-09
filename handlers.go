@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"strconv"
 
 	"time"
 
@@ -20,69 +18,135 @@ var (
 	meter  = otel.Meter("publish-consume")
 )
 
-func publish(w http.ResponseWriter, r *http.Request) {
-	_, js_span := tracer.Start(r.Context(), "jetstream")
-	defer js_span.End()
+func connection() (*nats.Conn, error) {
+	nc, err := nats.Connect(nats.DefaultURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return nc, err
+}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func publish(w http.ResponseWriter, r *http.Request) {
+	_, span := tracer.Start(r.Context(), "jetstream")
+	defer span.End()
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	nc, _ := nats.Connect(nats.DefaultURL)
+
+	nc, err := connection()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create a JetStream management interface
-	js, _ := jetstream.New(nc)
-
-	for i := 0; i < 10; i++ {
-		js.Publish(ctx, "ORDERS.new", []byte("hello message "+strconv.Itoa(i)))
-		fmt.Println("Published hello message", i)
-		resp := "Published hello message" + strconv.Itoa(i) + "\n"
-		if _, err := io.WriteString(w, resp); err != nil {
-			log.Printf("Write failed: %v\n", err)
-		}
+	js, err := jetstream.New(nc)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	js.Publish(ctx, "ORDERS.new", []byte("hello message"))
+	fmt.Println("message published.")
+
+	// for i := 0; i < 10; i++ {
+	// 	js.Publish(ctx, "ORDERS.new", []byte("hello message "+strconv.Itoa(i)))
+	// 	fmt.Println("Published hello message", i)
+	// 	resp := "Published hello message" + strconv.Itoa(i) + "\n"
+	// 	if _, err := io.WriteString(w, resp); err != nil {
+	// 		log.Printf("Write failed: %v\n", err)
+	// 	}
+	// }
 }
 
 func consume(w http.ResponseWriter, r *http.Request) {
-	_, js_span := tracer.Start(r.Context(), "jetstream")
-	defer js_span.End()
+	_, span := tracer.Start(r.Context(), "jetstream")
+	defer span.End()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	nc, _ := nats.Connect(nats.DefaultURL)
+
+	nc, err := connection()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create a JetStream management interface
-	js, _ := jetstream.New(nc)
+	js, err := jetstream.New(nc)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create a stream
-	stream, _ := js.CreateStream(ctx, jetstream.StreamConfig{
+	stream, err := js.CreateStream(ctx, jetstream.StreamConfig{
 		Name:     "ORDERS",
 		Subjects: []string{"ORDERS.*"},
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create durable consumer
-	c, _ := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+	c, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		Durable:   "CONS",
 		AckPolicy: jetstream.AckExplicitPolicy,
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// Get 10 messages from the consumer
-	messageCounter := 0
-	msgs, _ := c.Fetch(10)
-	for msg := range msgs.Messages() {
-		msg.Ack()
-		fmt.Println("Received a JetStream message via fetch: ", string(msg.Data()))
-		resp := "Received a JetStream message via fetch:" + string(msg.Data()) + "\n"
-		if _, err := io.WriteString(w, resp); err != nil {
-			log.Printf("Write failed: %v\n", err)
+	msg, _ := c.Next()
+	if err != nil {
+		log.Fatal(err)
+	}
+	msg.Ack()
+	fmt.Println("Recieved message: ", string(msg.Data()))
+}
+
+func ConsumerJob(ctx context.Context) {
+	nc, err := connection()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nc.Close()
+
+	// Create a JetStream management interface
+	js, err := jetstream.New(nc)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create a stream
+	stream, err := js.CreateStream(ctx, jetstream.StreamConfig{
+		Name:     "ORDERS",
+		Subjects: []string{"ORDERS.*"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create durable consumer
+	c, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+		Durable:   "CONS",
+		AckPolicy: jetstream.AckExplicitPolicy,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Consume messages continuously
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// Get the message from the consumer
+			msg, err := c.Next()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			// Process the message
+			msg.Ack()
+			fmt.Println("Received a JetStream message: ", string(msg.Data()))
 		}
-
-		messageCounter++
-	}
-	fmt.Printf("received %d messages\n", messageCounter)
-	resp := "received " + strconv.Itoa(messageCounter) + " messages" + "\n"
-	if _, err := io.WriteString(w, resp); err != nil {
-		log.Printf("Write failed: %v\n", err)
-	}
-	if msgs.Error() != nil {
-		fmt.Println("Error during Fetch(): ", msgs.Error())
 	}
 }

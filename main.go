@@ -48,6 +48,8 @@ func run() (err error) {
 		srvErr <- srv.ListenAndServe()
 	}()
 
+	go ConsumerJob(ctx)
+
 	// Wait for interruption.
 	select {
 	case err = <-srvErr:
@@ -78,7 +80,6 @@ func newHTTPHandler() http.Handler {
 	// Register handlers.
 	handleFunc("/publish", publish)
 	handleFunc("/consume", consume)
-	// handleFunc("/waiting", waiting)
 
 	// Add HTTP instrumentation for the whole server.
 	handler := otelhttp.NewHandler(mux, "/")

@@ -18,17 +18,15 @@ var (
 	meter  = otel.Meter("publish-consume")
 )
 
-func initConnection() (*nats.Conn, jetstream.JetStream) {
+func initConnection() (*nats.Conn, error) {
 	nc, err := nats.Connect(nats.DefaultURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// Create a JetStream management interface
+	return nc, err
+}
+
+// Create a JetStream management interface
+func initJetStream(nc *nats.Conn) (jetstream.JetStream, error) {
 	js, err := jetstream.New(nc)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return nc, js
+	return js, err
 }
 
 func publish(w http.ResponseWriter, r *http.Request) {
@@ -38,8 +36,16 @@ func publish(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	nc, js := initConnection()
+	nc, err := initConnection()
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer nc.Close()
+
+	js, err := initJetStream(nc)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	js.Publish(ctx, "ORDERS.new", []byte("hello message"))
 	fmt.Println("message published.")
@@ -65,16 +71,22 @@ func ConsumerJob(ctx context.Context) {
 	_, span := tracer.Start(ctx, "consumer")
 	defer span.End()
 
-	nc, js := initConnection()
+	nc, err := initConnection()
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer nc.Close()
 
-	// Create a stream
+	js, err := initJetStream(nc)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	stream, err := createStream(ctx, js)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Create durable consumer
 	c, err := createDurableConsumer(ctx, stream)
 	if err != nil {
 		log.Fatal(err)
@@ -92,7 +104,6 @@ func ConsumerJob(ctx context.Context) {
 				log.Fatal(err)
 			}
 
-			// Process the message
 			msg.Ack()
 			fmt.Println("Received a JetStream message: ", string(msg.Data()))
 		}

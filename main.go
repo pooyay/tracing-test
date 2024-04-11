@@ -53,7 +53,7 @@ func run() (err error) {
 		log.Fatal(err)
 	}
 	defer nc.Close()
-	nc = Nc
+	Nc = nc
 
 	go ConsumerJob(ctx, nc)
 

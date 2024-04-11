@@ -35,13 +35,3 @@ func createDurableConsumer(ctx context.Context, stream jetstream.Stream) (jetstr
 	})
 	return c, err
 }
-
-// func main2() {
-// 	http.HandleFunc("/example", publish)
-// 	http.ListenAndServe(":8080", nil)
-// }
-
-// func myHandler(w http.ResponseWriter, r *http.Request, additionalParam string) {
-// 	// Your handler logic here
-// 	// You can use w, r, and additionalParam as needed
-// }

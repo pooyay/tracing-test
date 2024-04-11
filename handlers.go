@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel"
 )
 
@@ -18,29 +17,14 @@ var (
 	meter  = otel.Meter("publish-consume")
 )
 
-func initConnection() (*nats.Conn, error) {
-	nc, err := nats.Connect(nats.DefaultURL)
-	return nc, err
-}
-
-// Create a JetStream management interface
-func initJetStream(nc *nats.Conn) (jetstream.JetStream, error) {
-	js, err := jetstream.New(nc)
-	return js, err
-}
-
 func publish(w http.ResponseWriter, r *http.Request) {
 	_, span := tracer.Start(r.Context(), "publish")
 	defer span.End()
 
+	nc := Nc
+
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-
-	nc, err := initConnection()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer nc.Close()
 
 	js, err := initJetStream(nc)
 	if err != nil {
@@ -51,33 +35,11 @@ func publish(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("message published.")
 }
 
-func createStream(ctx context.Context, js jetstream.JetStream) (jetstream.Stream, error) {
-	stream, err := js.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     "ORDERS",
-		Subjects: []string{"ORDERS.*"},
-	})
-	return stream, err
-}
-
-func createDurableConsumer(ctx context.Context, stream jetstream.Stream) (jetstream.Consumer, error) {
-	c, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
-		Durable:   "CONS",
-		AckPolicy: jetstream.AckExplicitPolicy,
-	})
-	return c, err
-}
-
-func ConsumerJob(ctx context.Context) {
+func ConsumerJob(ctx context.Context, nc *nats.Conn) {
 	_, span := tracer.Start(ctx, "consumer")
 	defer span.End()
 
-	nc, err := initConnection()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer nc.Close()
-
-	js, err := initJetStream(nc)
+	js, err := initJetStream(Nc)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -48,7 +48,14 @@ func run() (err error) {
 		srvErr <- srv.ListenAndServe()
 	}()
 
-	go ConsumerJob(ctx)
+	nc, err := initConnection()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nc.Close()
+	nc = Nc
+
+	go ConsumerJob(ctx, nc)
 
 	// Wait for interruption.
 	select {

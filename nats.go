@@ -2,12 +2,18 @@ package main
 
 import (
 	"context"
+	"sync"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-var Nc *nats.Conn
+type SafeConnection struct {
+	mu sync.Mutex
+	nc *nats.Conn
+}
+
+var Nc = SafeConnection{}
 
 func initConnection() (*nats.Conn, error) {
 	nc, err := nats.Connect(nats.DefaultURL)

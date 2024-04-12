@@ -53,9 +53,9 @@ func run() (err error) {
 		log.Fatal(err)
 	}
 	defer nc.Close()
-	Nc = nc
+	Nc.nc = nc
 
-	go ConsumerJob(ctx, nc)
+	go ConsumerJob(ctx)
 
 	// Wait for interruption.
 	select {
@@ -65,6 +65,7 @@ func run() (err error) {
 	case <-ctx.Done():
 		// Wait for first CTRL+C.
 		// Stop receiving signal notifications as soon as possible.
+		nc.Close()
 		stop()
 	}
 

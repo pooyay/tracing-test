@@ -8,7 +8,6 @@ import (
 
 	"time"
 
-	"github.com/nats-io/nats.go"
 	"go.opentelemetry.io/otel"
 )
 
@@ -18,10 +17,11 @@ var (
 )
 
 func publish(w http.ResponseWriter, r *http.Request) {
+	Nc.mu.Lock()
 	_, span := tracer.Start(r.Context(), "publish")
 	defer span.End()
 
-	nc := Nc
+	nc := Nc.nc
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -33,13 +33,17 @@ func publish(w http.ResponseWriter, r *http.Request) {
 
 	js.Publish(ctx, "ORDERS.new", []byte("hello message"))
 	fmt.Println("message published.")
+	Nc.mu.Unlock()
 }
 
-func ConsumerJob(ctx context.Context, nc *nats.Conn) {
+func ConsumerJob(ctx context.Context) {
+	Nc.mu.Lock()
 	_, span := tracer.Start(ctx, "consumer")
 	defer span.End()
 
-	js, err := initJetStream(Nc)
+	nc := Nc.nc
+
+	js, err := initJetStream(nc)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,6 +62,7 @@ func ConsumerJob(ctx context.Context, nc *nats.Conn) {
 	for {
 		select {
 		case <-ctx.Done():
+			Nc.mu.Unlock()
 			return
 		default:
 			// Get the message from the consumer

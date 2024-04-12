@@ -34,10 +34,10 @@ func publish(w http.ResponseWriter, r *http.Request) {
 	js.Publish(ctx, "ORDERS.new", []byte("hello message"))
 	fmt.Println("message published.")
 	Nc.mu.Unlock()
+	fmt.Println("after unlock")
 }
 
 func ConsumerJob(ctx context.Context) {
-	Nc.mu.Lock()
 	_, span := tracer.Start(ctx, "consumer")
 	defer span.End()
 
@@ -62,7 +62,6 @@ func ConsumerJob(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			Nc.mu.Unlock()
 			return
 		default:
 			// Get the message from the consumer

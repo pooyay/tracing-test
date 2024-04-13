@@ -2,22 +2,20 @@ package main
 
 import (
 	"context"
-	"sync"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-type SafeConnection struct {
-	mu sync.Mutex
-	nc *nats.Conn
-}
-
-var Nc = SafeConnection{}
+var nc *nats.Conn
 
 func initConnection() (*nats.Conn, error) {
 	nc, err := nats.Connect(nats.DefaultURL)
 	return nc, err
+}
+
+func assignConnection(newConnection *nats.Conn) {
+	nc = newConnection
 }
 
 // Create a JetStream management interface

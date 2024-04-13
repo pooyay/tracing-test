@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "fmt"
 	"context"
 	"errors"
 	"log"
@@ -39,7 +38,7 @@ func run() (err error) {
 		BaseContext:  func(_ net.Listener) context.Context { return ctx },
 		ReadTimeout:  time.Second,
 		WriteTimeout: 10 * time.Second,
-		Handler:      newHTTPHandler(),
+		Handler:      routes(),
 	}
 	srvErr := make(chan error, 1)
 	go func() {
@@ -51,7 +50,8 @@ func run() (err error) {
 		log.Fatal(err)
 	}
 	defer nc.Close()
-	Nc.nc = nc
+
+	assignConnection(nc)
 
 	go consumerJob(ctx)
 

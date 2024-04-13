@@ -17,7 +17,7 @@ var (
 	meter  = otel.Meter("publish-consume")
 )
 
-func newHTTPHandler() http.Handler {
+func routes() http.Handler {
 	mux := http.NewServeMux()
 
 	// handleFunc is a replacement for mux.HandleFunc
@@ -37,11 +37,8 @@ func newHTTPHandler() http.Handler {
 }
 
 func publish(w http.ResponseWriter, r *http.Request) {
-	Nc.mu.Lock()
 	_, span := tracer.Start(r.Context(), "publish")
 	defer span.End()
-
-	nc := Nc.nc
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -53,6 +50,4 @@ func publish(w http.ResponseWriter, r *http.Request) {
 
 	js.Publish(ctx, "ORDERS.new", []byte("hello message"))
 	fmt.Println("message published.")
-	Nc.mu.Unlock()
-	fmt.Println("after unlock")
 }

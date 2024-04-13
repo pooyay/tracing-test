@@ -10,8 +10,6 @@ func consumerJob(ctx context.Context) {
 	_, span := tracer.Start(ctx, "consumer")
 	defer span.End()
 
-	nc := Nc.nc
-
 	js, err := initJetStream(nc)
 	if err != nil {
 		log.Fatal(err)

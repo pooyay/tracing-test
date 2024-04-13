@@ -8,6 +8,7 @@ import (
 
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 )
 
@@ -15,6 +16,25 @@ var (
 	tracer = otel.Tracer("publish-consume")
 	meter  = otel.Meter("publish-consume")
 )
+
+func newHTTPHandler() http.Handler {
+	mux := http.NewServeMux()
+
+	// handleFunc is a replacement for mux.HandleFunc
+	// which enriches the handler's HTTP instrumentation with the pattern as the http.route.
+	handleFunc := func(pattern string, handlerFunc func(http.ResponseWriter, *http.Request)) {
+		// Configure the "http.route" for the HTTP instrumentation.
+		handler := otelhttp.WithRouteTag(pattern, http.HandlerFunc(handlerFunc))
+		mux.Handle(pattern, handler)
+	}
+
+	// Register handlers.
+	handleFunc("/publish", publish)
+
+	// Add HTTP instrumentation for the whole server.
+	handler := otelhttp.NewHandler(mux, "/")
+	return handler
+}
 
 func publish(w http.ResponseWriter, r *http.Request) {
 	Nc.mu.Lock()
@@ -35,43 +55,4 @@ func publish(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("message published.")
 	Nc.mu.Unlock()
 	fmt.Println("after unlock")
-}
-
-func ConsumerJob(ctx context.Context) {
-	_, span := tracer.Start(ctx, "consumer")
-	defer span.End()
-
-	nc := Nc.nc
-
-	js, err := initJetStream(nc)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	stream, err := createStream(ctx, js)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	c, err := createDurableConsumer(ctx, stream)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Consume messages continuously
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			// Get the message from the consumer
-			msg, err := c.Next()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			msg.Ack()
-			fmt.Println("Received a JetStream message: ", string(msg.Data()))
-		}
-	}
 }

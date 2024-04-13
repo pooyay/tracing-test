@@ -10,8 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"time"
-
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -55,7 +53,7 @@ func run() (err error) {
 	defer nc.Close()
 	Nc.nc = nc
 
-	go ConsumerJob(ctx)
+	go consumerJob(ctx)
 
 	// Wait for interruption.
 	select {
@@ -65,30 +63,10 @@ func run() (err error) {
 	case <-ctx.Done():
 		// Wait for first CTRL+C.
 		// Stop receiving signal notifications as soon as possible.
-		nc.Close()
 		stop()
 	}
 
 	// When Shutdown is called, ListenAndServe immediately returns ErrServerClosed.
 	err = srv.Shutdown(context.Background())
 	return
-}
-
-func newHTTPHandler() http.Handler {
-	mux := http.NewServeMux()
-
-	// handleFunc is a replacement for mux.HandleFunc
-	// which enriches the handler's HTTP instrumentation with the pattern as the http.route.
-	handleFunc := func(pattern string, handlerFunc func(http.ResponseWriter, *http.Request)) {
-		// Configure the "http.route" for the HTTP instrumentation.
-		handler := otelhttp.WithRouteTag(pattern, http.HandlerFunc(handlerFunc))
-		mux.Handle(pattern, handler)
-	}
-
-	// Register handlers.
-	handleFunc("/publish", publish)
-
-	// Add HTTP instrumentation for the whole server.
-	handler := otelhttp.NewHandler(mux, "/")
-	return handler
 }

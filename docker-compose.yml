@@ -11,16 +11,9 @@ services:
       - "4318:4318"
     environment:
       - LOG_LEVEL=debug
-    networks:
-      - jaeger-example
   nats-server:
     image: nats:latest
     command: ["--jetstream"]
     ports:
       - "4222:4222"
       - "8222:8222"  # NATS management interface
-
-
-networks:
-  jaeger-example:
-  nats:

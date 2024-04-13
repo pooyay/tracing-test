@@ -7,7 +7,7 @@ import (
 )
 
 func consumerJob(ctx context.Context) {
-	_, span := tracer.Start(ctx, "consumer")
+	ctx, span := tracer.Start(ctx, "consumer")
 	defer span.End()
 
 	js, err := initJetStream(nc)

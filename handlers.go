@@ -37,10 +37,10 @@ func routes() http.Handler {
 }
 
 func publish(w http.ResponseWriter, r *http.Request) {
-	_, span := tracer.Start(r.Context(), "publish")
+	ctx, span := tracer.Start(r.Context(), "publish")
 	defer span.End()
 
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	js, err := initJetStream(nc)

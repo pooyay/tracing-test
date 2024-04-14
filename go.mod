@@ -19,6 +19,8 @@ require (
 	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/nats-io/nkeys v0.4.7 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
+	go.opentelemetry.io/contrib/propagators/jaeger v1.25.0
+	go.opentelemetry.io/otel/exporters/jaeger v1.17.0
 	go.opentelemetry.io/otel/metric v1.25.0 // indirect
 	go.opentelemetry.io/otel/trace v1.25.0 // indirect
 	golang.org/x/crypto v0.18.0 // indirect

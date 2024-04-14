@@ -34,7 +34,9 @@ func consumerJob(ctx context.Context, nc *nats.Conn) {
 			return
 		default:
 			// Get the message from the consumer
+			_, span := tracer.Start(ctx, "consumer")
 			msg, err := c.Next()
+			span.End()
 			if err != nil {
 				log.Fatalf("cant get the message: %v", err)
 			}

@@ -6,11 +6,18 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
+	// "go.opentelemetry.io/contrib/propagators/jaeger"
+	// "go.opentelemetry.io/otel"
+	// // "go.opentelemetry.io/otel/exporters/jaeger"
+	// "go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
+	// "go.opentelemetry.io/otel/propagation"
+	// "go.opentelemetry.io/otel/sdk/metric"
+	// "go.opentelemetry.io/otel/sdk/trace"
 )
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
@@ -68,8 +75,9 @@ func newPropagator() propagation.TextMapPropagator {
 }
 
 func newTraceProvider() (*trace.TracerProvider, error) {
-	traceExporter, err := stdouttrace.New(
-		stdouttrace.WithPrettyPrint())
+	traceExporter, err := jaeger.New(
+		jaeger.WithCollectorEndpoint(),
+	)
 	if err != nil {
 		return nil, err
 	}

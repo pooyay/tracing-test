@@ -8,6 +8,7 @@ import (
 
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 )
@@ -17,7 +18,11 @@ var (
 	meter  = otel.Meter("publish-consume")
 )
 
-func routes() http.Handler {
+type server struct {
+	nc *nats.Conn
+}
+
+func routes(nc *nats.Conn) http.Handler {
 	mux := http.NewServeMux()
 
 	// handleFunc is a replacement for mux.HandleFunc
@@ -28,22 +33,24 @@ func routes() http.Handler {
 		mux.Handle(pattern, handler)
 	}
 
+	s := server{nc: nc}
+
 	// Register handlers.
-	handleFunc("/publish", publish)
+	handleFunc("/publish", s.publish)
 
 	// Add HTTP instrumentation for the whole server.
 	handler := otelhttp.NewHandler(mux, "/")
 	return handler
 }
 
-func publish(w http.ResponseWriter, r *http.Request) {
+func (s *server) publish(w http.ResponseWriter, r *http.Request) {
 	ctx, span := tracer.Start(r.Context(), "publish")
 	defer span.End()
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	js, err := initJetStream(nc)
+	js, err := initJetStream(s.nc)
 	if err != nil {
 		log.Fatal(err)
 	}

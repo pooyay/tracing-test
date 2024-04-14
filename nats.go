@@ -7,15 +7,9 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-var nc *nats.Conn
-
 func initConnection() (*nats.Conn, error) {
 	nc, err := nats.Connect(nats.DefaultURL)
 	return nc, err
-}
-
-func assignConnection(newConnection *nats.Conn) {
-	nc = newConnection
 }
 
 // Create a JetStream management interface

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+
+	"github.com/nats-io/nats.go"
 )
 
-func consumerJob(ctx context.Context) {
+func consumerJob(ctx context.Context, nc *nats.Conn) {
 	ctx, span := tracer.Start(ctx, "consumer")
 	defer span.End()
 
@@ -34,7 +36,7 @@ func consumerJob(ctx context.Context) {
 			// Get the message from the consumer
 			msg, err := c.Next()
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("cant get the message: %v", err)
 			}
 
 			msg.Ack()

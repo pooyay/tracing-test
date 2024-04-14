@@ -32,28 +32,26 @@ func run() (err error) {
 		err = errors.Join(err, otelShutdown(context.Background()))
 	}()
 
-	// Start HTTP server.
-	srv := &http.Server{
-		Addr:         ":8081",
-		BaseContext:  func(_ net.Listener) context.Context { return ctx },
-		ReadTimeout:  time.Second,
-		WriteTimeout: 10 * time.Second,
-		Handler:      routes(),
-	}
-	srvErr := make(chan error, 1)
-	go func() {
-		srvErr <- srv.ListenAndServe()
-	}()
-
 	nc, err := initConnection()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer nc.Close()
 
-	assignConnection(nc)
+	// Start HTTP server.
+	srv := &http.Server{
+		Addr:         ":8081",
+		BaseContext:  func(_ net.Listener) context.Context { return ctx },
+		ReadTimeout:  time.Second,
+		WriteTimeout: 10 * time.Second,
+		Handler:      routes(nc),
+	}
+	srvErr := make(chan error, 1)
+	go func() {
+		srvErr <- srv.ListenAndServe()
+	}()
 
-	go consumerJob(ctx)
+	go consumerJob(ctx, nc)
 
 	// Wait for interruption.
 	select {
